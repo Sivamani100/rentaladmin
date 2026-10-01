@@ -1139,10 +1139,12 @@ packages:
   rental:
     dependency: "direct main"
     description:
-      path: "../rental"
-      relative: true
-    source: path
-    version: "1.1.9+19"
+      path: "."
+      ref: main
+      resolved-ref: a764ccc534a396bc59abb37017c1fec5965b3c1a
+      url: "https://github.com/Sivamani100/rental.git"
+    source: git
+    version: "1.1.8+18"
   rxdart:
     dependency: transitive
     description:
