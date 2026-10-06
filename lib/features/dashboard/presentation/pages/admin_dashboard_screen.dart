@@ -20,6 +20,7 @@ import 'package:rental/features/property_details/presentation/pages/property_det
 import 'package:rental_admin/features/dashboard/presentation/pages/admin_database_analytics_tab.dart';
 
 import 'package:rental/features/home/presentation/pages/home_screen.dart';
+import 'package:rental_admin/features/google_import/presentation/pages/google_import_wizard.dart';
 
 part 'admin_dashboard_notifications_ext.dart';
 part 'admin_dashboard_overview_ext.dart';
@@ -1322,6 +1323,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
               const SizedBox(height: 4),
 
+              _buildModernSidebarItem(
+                index: 8,
+                icon: CupertinoIcons.map_pin_ellipse,
+                label: 'Google Import',
+                isHighlight: true, // We can use the 'LIVE' highlight style if wanted, or just standard
+                isCollapsed: isCollapsed,
+                isDark: isDark,
+                isDrawer: isDrawer,
+              ),
+              const SizedBox(height: 4),
+
             ],
           ),
         ),
@@ -2111,6 +2123,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return 'User Reports & Flagged Listings Hub';
       case 7:
         return 'Supabase Database & Cloud Storage Telemetry';
+      case 8:
+        return 'Google Places Deep Import (50km Radius)';
       default:
         return 'Admin Dashboard';
     }
@@ -2138,6 +2152,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           isDark: isDark,
           onRefreshParent: _fetchProperties,
         );
+      case 8:
+        return GoogleImportWizard(isDark: isDark);
       default:
         return _buildOverviewTab(isDark);
     }

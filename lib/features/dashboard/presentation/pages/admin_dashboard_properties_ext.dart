@@ -250,6 +250,42 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 10),
+
+                      // Deep Import from Google Maps Button
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => const GoogleImportWizard(),
+                          ).then((_) => _fetchProperties()); // Refresh after import
+                        },
+                        child: Container(
+                          height: 44,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryYellow.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.primaryYellow.withValues(alpha: 0.5)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(CupertinoIcons.map_pin_ellipse, size: 16, color: AppTheme.primaryYellow),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Deep Import from Google',
+                                style: TextStyle(fontFamily: 'ProximaNova', 
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.primaryYellow,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -878,12 +914,13 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
 
       await _supabase.from('properties').update(updateData).eq('id', propertyId);
       if (mounted) {
-        AppSnackbar.success(context, 'Listing status updated to ""');
+        AppSnackbar.success(context, 'Listing status updated to "$newStatus"');
         _fetchProperties();
       }
     } catch (e) {
+      print('Failed to update status: $e');
       if (mounted) {
-        AppSnackbar.error(context, 'Failed to update status: ');
+        AppSnackbar.error(context, 'Failed to update status: $e');
       }
     }
   }

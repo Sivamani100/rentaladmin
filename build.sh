@@ -18,4 +18,4 @@ EOF
 # Build Flutter Web App
 echo "Building Flutter Web App..."
 flutter pub get
-flutter build web --dart-define-from-file=env.json
+flutter build web --no-tree-shake-icons --dart-define-from-file=env.json

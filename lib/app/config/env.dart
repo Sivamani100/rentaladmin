@@ -7,4 +7,10 @@ class Env {
 
   static const String supabaseAnonKey =
       String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+      
+  static const String googleMapsApiKey =
+      String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: '');
+      
+  static const String googleMapsApiKey2 =
+      String.fromEnvironment('GOOGLE_MAPS_API_KEY_2', defaultValue: '');
 }
