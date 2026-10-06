@@ -24,6 +24,7 @@ import 'package:rental_admin/features/dashboard/presentation/pages/admin_databas
 
 import 'package:rental/features/home/presentation/pages/home_screen.dart';
 import 'package:rental_admin/features/google_import/presentation/pages/google_import_wizard.dart';
+import 'package:rental_admin/features/google_import/presentation/pages/google_photos_search_tab.dart';
 
 part 'admin_dashboard_notifications_ext.dart';
 part 'admin_dashboard_overview_ext.dart';
@@ -1337,6 +1338,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
               const SizedBox(height: 4),
 
+              _buildModernSidebarItem(
+                index: 9,
+                icon: CupertinoIcons.photo_on_rectangle,
+                label: 'Google Photos Automation',
+                isHighlight: true,
+                isCollapsed: isCollapsed,
+                isDark: isDark,
+                isDrawer: isDrawer,
+              ),
+              const SizedBox(height: 4),
+
             ],
           ),
         ),
@@ -2128,6 +2140,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return 'Supabase Database & Cloud Storage Telemetry';
       case 8:
         return 'Google Places Deep Import (50km Radius)';
+      case 9:
+        return 'Google Photos Automation';
       default:
         return 'Admin Dashboard';
     }
@@ -2157,6 +2171,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         );
       case 8:
         return GoogleImportWizard(isDark: isDark);
+      case 9:
+        return GooglePhotosSearchTab(isDark: isDark);
       default:
         return _buildOverviewTab(isDark);
     }

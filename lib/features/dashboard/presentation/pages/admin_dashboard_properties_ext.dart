@@ -252,7 +252,7 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
                       ),
                       const SizedBox(width: 10),
 
-                      // Deep Import from Google Maps Button
+                    // Deep Import from Google Maps Button
                       InkWell(
                         borderRadius: BorderRadius.circular(8),
                         onTap: () {
@@ -280,6 +280,49 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                   color: AppTheme.primaryYellow,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      
+                      // Automate Google Photos Button
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => Dialog(
+                              insetPadding: EdgeInsets.zero,
+                              child: SizedBox(
+                                width: MediaQuery.of(context).size.width * 0.95,
+                                height: MediaQuery.of(context).size.height * 0.95,
+                                child: GooglePhotosSearchTab(isDark: isDark),
+                              )
+                            ),
+                          ).then((_) => _fetchProperties());
+                        },
+                        child: Container(
+                          height: 44,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(CupertinoIcons.photo_on_rectangle, size: 16, color: Color(0xFF10B981)),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Automated Google Photos',
+                                style: TextStyle(fontFamily: 'ProximaNova', 
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF10B981),
                                 ),
                               ),
                             ],
