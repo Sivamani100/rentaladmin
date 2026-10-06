@@ -7,6 +7,10 @@
       "handle": "filesystem"
     },
     {
+      "src": "/api/google-places/(.*)",
+      "dest": "https://places.googleapis.com/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }

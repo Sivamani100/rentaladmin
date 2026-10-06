@@ -40,8 +40,10 @@ class GooglePlaceModel {
         final photoName = p['name']; // e.g. places/123/photos/456
         if (photoName != null) {
           final apiKey = GooglePlacesService.activeApiKey;
-          // Direct New API media URL
-          final url = 'https://places.googleapis.com/v1/$photoName/media?maxHeightPx=800&maxWidthPx=800&key=$apiKey';
+          // Direct New API media URL. In production, use Vercel proxy.
+          String baseUrl = 'https://places.googleapis.com';
+          if (kIsWeb && kReleaseMode) baseUrl = '/api/google-places';
+          final url = '$baseUrl/v1/$photoName/media?maxHeightPx=800&maxWidthPx=800&key=$apiKey';
           imageUrls.add(url);
         }
       }
@@ -79,7 +81,10 @@ class GooglePlacesService {
   static Future<List<String>> getCitySuggestions(String query) async {
     if (query.isEmpty) return [];
     
-    final url = Uri.parse('https://places.googleapis.com/v1/places:autocomplete');
+    String baseUrl = 'https://places.googleapis.com';
+    if (kIsWeb && kReleaseMode) baseUrl = '/api/google-places';
+    
+    final url = Uri.parse('$baseUrl/v1/places:autocomplete');
     final payload = {
       "input": query,
       "includedPrimaryTypes": ["locality", "administrative_area_level_3"] // Can adjust if needed
@@ -111,7 +116,10 @@ class GooglePlacesService {
 
   /// Geocodes a city/area name into Lat/Lng using Places API (New)
   static Future<Map<String, double>?> getCoordinatesForCity(String cityName) async {
-    final url = Uri.parse('https://places.googleapis.com/v1/places:searchText');
+    String baseUrl = 'https://places.googleapis.com';
+    if (kIsWeb && kReleaseMode) baseUrl = '/api/google-places';
+    
+    final url = Uri.parse('$baseUrl/v1/places:searchText');
     final payload = {
       "textQuery": cityName,
     };
@@ -207,7 +215,10 @@ class GooglePlacesService {
   }
 
   static Future<List<GooglePlaceModel>> _searchAtLocation(double lat, double lng) async {
-    final url = Uri.parse('https://places.googleapis.com/v1/places:searchText');
+    String baseUrl = 'https://places.googleapis.com';
+    if (kIsWeb && kReleaseMode) baseUrl = '/api/google-places';
+    
+    final url = Uri.parse('$baseUrl/v1/places:searchText');
     
     final payload = {
       // Expanded query to include everything the user asked for: lodges, hotels, dormitories, rooms, PGs, hostels, etc.
@@ -262,7 +273,10 @@ class GooglePlacesService {
 
   /// Fetch phone number using New API Place Details
   static Future<String?> getPlacePhoneNumber(String placeId) async {
-    final url = Uri.parse('https://places.googleapis.com/v1/places/$placeId');
+    String baseUrl = 'https://places.googleapis.com';
+    if (kIsWeb && kReleaseMode) baseUrl = '/api/google-places';
+    
+    final url = Uri.parse('$baseUrl/v1/places/$placeId');
     
     for (int retry = 0; retry < 2; retry++) {
       final headers = {
