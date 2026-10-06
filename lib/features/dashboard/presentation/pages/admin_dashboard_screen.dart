@@ -14,6 +14,9 @@ import 'package:rental_admin/app/theme/theme_provider.dart';
 import 'package:rental_admin/core/services/notification_broadcast_service.dart';
 import 'package:rental_admin/core/services/ai_auto_notifier_service.dart';
 import 'package:rental/core/models/property_model.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 
 import 'package:rental/features/property_posting/presentation/pages/posting_screen.dart';
 import 'package:rental/features/property_details/presentation/pages/property_details_screen.dart';
@@ -3453,6 +3456,155 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showSuggestedPhotosInspectionModal(PropertyModel prop, bool isDark) {
+    final propId = prop.id ?? '';
+    final pendingPhotos = prop.suggestedPhotos.where((p) => p['status'] == 'pending').toList();
+    if (pendingPhotos.isEmpty) {
+      AppSnackbar.info(context, 'No pending photos for this property.');
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (context) {
+        bool isProcessing = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: isDark ? const Color(0xFF161922) : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: Container(
+                width: 700,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Approve Suggested Photos',
+                          style: TextStyle(fontFamily: 'ProximaNova', fontSize: 18, fontWeight: FontWeight.w800),
+                        ),
+                        IconButton(
+                          icon: const Icon(CupertinoIcons.clear),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Pending Photos (${pendingPhotos.length}):'),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 200,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: pendingPhotos.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        itemBuilder: (context, i) {
+                          final photoUrl = pendingPhotos[i]['url'];
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: CachedNetworkImage(
+                              imageUrl: photoUrl,
+                              width: 200,
+                              height: 200,
+                              fit: BoxFit.cover,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (isProcessing)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onPressed: () async {
+                              setState(() => isProcessing = true);
+                              try {
+                                final ByteData watermarkData = await rootBundle.load('assets/images/watermark.png');
+                                final Uint8List watermarkBytes = watermarkData.buffer.asUint8List();
+                                final img.Image? watermarkImg = img.decodeImage(watermarkBytes);
+
+                                List<String> newImageUrls = List<String>.from(prop.imageUrls);
+                                List<dynamic> updatedSuggestedPhotos = List<dynamic>.from(prop.suggestedPhotos);
+
+                                for (var p in pendingPhotos) {
+                                  final response = await http.get(Uri.parse(p['url']));
+                                  if (response.statusCode == 200) {
+                                    img.Image? originalImage = img.decodeImage(response.bodyBytes);
+                                    if (originalImage != null) {
+                                      // Add watermark
+                                      if (watermarkImg != null) {
+                                        // Resize watermark to fit nicely (1/4 of the image width)
+                                        img.Image resizedWatermark = img.copyResize(watermarkImg, width: originalImage.width ~/ 4);
+                                        img.compositeImage(originalImage, resizedWatermark, dstX: originalImage.width - resizedWatermark.width - 20, dstY: originalImage.height - resizedWatermark.height - 20);
+                                      }
+
+                                      // Save the image
+                                      List<int> processedBytes = img.encodeJpg(originalImage, quality: 90);
+
+                                      // Upload
+                                      final fileName = 'watermarked_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                                      await _supabase.storage.from('property_images').uploadBinary(fileName, Uint8List.fromList(processedBytes));
+                                      final newUrl = _supabase.storage.from('property_images').getPublicUrl(fileName);
+                                      newImageUrls.add(newUrl);
+
+                                      // Update status
+                                      final index = updatedSuggestedPhotos.indexOf(p);
+                                      if (index != -1) {
+                                        updatedSuggestedPhotos[index]['status'] = 'approved';
+                                      }
+                                    }
+                                  }
+                                }
+
+                                await _supabase.from('properties').update({
+                                  'image_urls': newImageUrls,
+                                  'suggested_photos': updatedSuggestedPhotos,
+                                }).eq('id', propId);
+
+                                if (mounted) {
+                                  Navigator.pop(context);
+                                  AppSnackbar.success(context, 'Photos approved and added to property.');
+                                  _fetchProperties();
+                                }
+                              } catch (e) {
+                                setState(() => isProcessing = false);
+                                AppSnackbar.error(context, 'Error processing photos: $e');
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF10B981),
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Approve & Add Watermark'),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

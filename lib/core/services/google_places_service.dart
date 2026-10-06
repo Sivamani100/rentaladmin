@@ -76,7 +76,10 @@ class GooglePlacesService {
     _currentKeyIndex = _currentKeyIndex == 0 ? 1 : 0;
     print('Switched to Google Maps API Key $_currentKeyIndex due to Quota Limit');
   }
-
+  /// Get city/area autocomplete suggestions
+  static Future<List<String>> getCitySuggestions(String query) async {
+    if (query.isEmpty) return [];
+    
     String baseUrl = 'https://places.googleapis.com';
     if (kIsWeb && kReleaseMode) baseUrl = '/api/google-places';
     

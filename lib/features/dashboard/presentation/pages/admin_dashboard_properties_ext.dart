@@ -786,6 +786,7 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
                       icon: Icon(CupertinoIcons.ellipsis_vertical, size: 17, color: mutedColor),
                       onSelected: (val) {
                         if (val == 'inspect') _showPropertyInspectionModal(prop, isDark);
+                        if (val == 'approve_photos') _showSuggestedPhotosInspectionModal(prop, isDark);
                         if (val == 'edit') _showEditPropertyModal(prop, isDark);
                         if (val == 'phone') _viewPropertyInLivePhone(prop);
                         if (val == 'availability') _toggleAvailability(propId, prop.isAvailable);
@@ -801,6 +802,21 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
                         }
                       },
                       itemBuilder: (context) => [
+                        if (prop.suggestedPhotos.any((p) => p['status'] == 'pending'))
+                          PopupMenuItem(
+                            value: 'approve_photos',
+                            height: 38,
+                            child: Row(
+                              children: [
+                                const Icon(CupertinoIcons.photo_on_rectangle, size: 15, color: Color(0xFF10B981)),
+                                const SizedBox(width: 9),
+                                Text(
+                                  'Approve Suggested Photos',
+                                  style: TextStyle(fontFamily: 'ProximaNova', fontSize: 12.5, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
                         PopupMenuItem(
                           value: 'phone',
                           height: 38,
