@@ -77,14 +77,10 @@ class GooglePlacesService {
     print('Switched to Google Maps API Key $_currentKeyIndex due to Quota Limit');
   }
 
-  /// Get city/area autocomplete suggestions
-  static Future<List<String>> getCitySuggestions(String query) async {
-    if (query.isEmpty) return [];
-    
     String baseUrl = 'https://places.googleapis.com';
     if (kIsWeb && kReleaseMode) baseUrl = '/api/google-places';
     
-    final url = Uri.parse('$baseUrl/v1/places:autocomplete');
+    final url = Uri.parse('$baseUrl/v1/places:autocomplete?key=$activeApiKey');
     final payload = {
       "input": query,
       "includedPrimaryTypes": ["locality", "administrative_area_level_3"] // Can adjust if needed
@@ -92,7 +88,6 @@ class GooglePlacesService {
 
     final headers = {
       'Content-Type': 'application/json',
-      'X-Goog-Api-Key': activeApiKey,
     };
 
     try {
@@ -119,15 +114,14 @@ class GooglePlacesService {
     String baseUrl = 'https://places.googleapis.com';
     if (kIsWeb && kReleaseMode) baseUrl = '/api/google-places';
     
-    final url = Uri.parse('$baseUrl/v1/places:searchText');
     final payload = {
       "textQuery": cityName,
     };
     
     for (int retry = 0; retry < 2; retry++) {
+      final url = Uri.parse('$baseUrl/v1/places:searchText?key=$activeApiKey');
       final headers = {
         'Content-Type': 'application/json',
-        'X-Goog-Api-Key': activeApiKey,
         'X-Goog-FieldMask': 'places.location'
       };
       
@@ -218,8 +212,6 @@ class GooglePlacesService {
     String baseUrl = 'https://places.googleapis.com';
     if (kIsWeb && kReleaseMode) baseUrl = '/api/google-places';
     
-    final url = Uri.parse('$baseUrl/v1/places:searchText');
-    
     final payload = {
       // Expanded query to include everything the user asked for: lodges, hotels, dormitories, rooms, PGs, hostels, etc.
       "textQuery": "lodges OR hotels OR dormitories OR rental rooms OR PGs OR hostels OR guest houses",
@@ -235,9 +227,9 @@ class GooglePlacesService {
     };
 
     for (int retry = 0; retry < 2; retry++) {
+      final url = Uri.parse('$baseUrl/v1/places:searchText?key=$activeApiKey');
       final headers = {
         'Content-Type': 'application/json',
-        'X-Goog-Api-Key': activeApiKey,
         'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.internationalPhoneNumber,places.nationalPhoneNumber,places.location,places.photos'
       };
       
@@ -276,11 +268,9 @@ class GooglePlacesService {
     String baseUrl = 'https://places.googleapis.com';
     if (kIsWeb && kReleaseMode) baseUrl = '/api/google-places';
     
-    final url = Uri.parse('$baseUrl/v1/places/$placeId');
-    
     for (int retry = 0; retry < 2; retry++) {
+      final url = Uri.parse('$baseUrl/v1/places/$placeId?key=$activeApiKey');
       final headers = {
-        'X-Goog-Api-Key': activeApiKey,
         'X-Goog-FieldMask': 'internationalPhoneNumber,nationalPhoneNumber'
       };
       
