@@ -22,12 +22,8 @@ class PropertyPhotoSearchService {
       localityHint = parts.take(2).join(', ').trim();
     }
     
-    // Normalize and remove filler words for the search query
-    final cleanName = propertyName
-        .replaceAll(RegExp(r'\b(boys|girls|hostel|pg|mens|ladies)\b', caseSensitive: false), '')
-        .trim();
-        
-    final query = cleanName.isNotEmpty ? '$cleanName $localityHint' : propertyName;
+    // Use the full property name and locality hint for a highly accurate search.
+    final query = localityHint.isNotEmpty ? '$propertyName $localityHint'.trim() : propertyName.trim();
 
     final payload = {
       "textQuery": query,
@@ -37,7 +33,7 @@ class PropertyPhotoSearchService {
             "latitude": lat,
             "longitude": lng
           },
-          "radius": 300.0 // Strict 300m radius
+          "radius": 500.0 // 500m radius to handle slightly inaccurate pins
         }
       }
     };
@@ -132,13 +128,31 @@ class PropertyPhotoSearchService {
       // 1. Distance
       final dist = const Distance().as(LengthUnit.Meter, targetPoint, LatLng(lat, lng));
       
-      // Reject if too far
-      if (dist > 400) continue; 
+      // Reject if too far (allow up to 600m to handle inaccurate pins)
+      if (dist > 600) continue; 
 
       // 2. Name Similarity (very basic fuzzy)
+      final n1Words = pName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9\s]'), '').split(RegExp(r'\s+'));
+      final n2Words = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9\s]'), '').split(RegExp(r'\s+'));
+      
+      final fillers = {'hostel', 'pg', 'boys', 'girls', 'mens', 'ladies', 'rooms', 'hotel', 'lodge', 'the', 'and'};
+      final n1Sig = n1Words.where((w) => w.isNotEmpty && !fillers.contains(w)).toList();
+      final n2Sig = n2Words.where((w) => w.isNotEmpty && !fillers.contains(w)).toList();
+
+      bool nameMatch = false;
       final n1 = pName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
       final n2 = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-      bool nameMatch = n1.contains(n2) || n2.contains(n1);
+
+      if (n1.isNotEmpty && n2.isNotEmpty && (n1.contains(n2) || n2.contains(n1))) {
+        nameMatch = true;
+      } else if (n1Sig.isNotEmpty && n2Sig.isNotEmpty) {
+        for (var w in n1Sig) {
+          if (n2Sig.contains(w)) {
+             nameMatch = true;
+             break;
+          }
+        }
+      }
 
       // 3. Type Penalty
       bool hasGoodType = types.any((t) => t.toString().contains('lodging') || t.toString().contains('hostel') || t.toString().contains('room'));
@@ -150,8 +164,15 @@ class PropertyPhotoSearchService {
       else score -= 30;
 
       if (nameMatch) score += 50;
+      else score -= 40; // Penalize if the name doesn't match at all
+
       if (hasGoodType) score += 20;
       if (isBadType) score -= 40;
+      
+      // If it's a generic street address (no name match, not a lodging type), heavy penalty
+      if (!nameMatch && !hasGoodType) {
+        score -= 100;
+      }
 
       scoredCandidates.add({
         'candidate': c,
@@ -176,7 +197,7 @@ class PropertyPhotoSearchService {
         'message': 'Needs match confirmation',
         'candidates': scoredCandidates.map((e) => _formatCandidateData(e['candidate'], e['distance'], activeKey)).toList(),
       };
-    } else if (best['score'] > 50) {
+    } else if (best['score'] > 70) {
        return _formatSuccessPayload('high_confidence', best, activeKey);
     } else {
       return {

@@ -31,6 +31,7 @@ part 'admin_dashboard_overview_ext.dart';
 part 'admin_dashboard_analytics_ext.dart';
 part 'admin_dashboard_users_ext.dart';
 part 'admin_dashboard_properties_ext.dart';
+part 'admin_dashboard_partners_ext.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -173,7 +174,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String _localityFilter = 'all';
 
   // Push Notification Composer State
-  final _notifTitleController = TextEditingController(text: '🔥 New Verified Rental in Danavaipeta!');
+  final _notifTitleController = TextEditingController(text: 'ðŸ”¥ New Verified Rental in Danavaipeta!');
   final _notifBodyController = TextEditingController(
     text: 'Spacious East-facing 2BHK flat with 100% Vastu and 24/7 Godavari water. Zero broker fee.',
   );
@@ -244,7 +245,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _fetchUserReports() async {
     setState(() => _isLoadingUserReports = true);
     try {
-      final res = await _supabase.from('listing_reports').select().order('created_at', ascending: false);
+      final res = await _supabase
+          .from('listing_reports')
+          .select()
+          .not('reason', 'like', 'PARTNER_HANDOVER_REQUEST%')
+          .order('created_at', ascending: false);
       if (mounted) {
         setState(() {
           _userReports = List<Map<String, dynamic>>.from(res);
@@ -254,6 +259,80 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } catch (e) {
       debugPrint('Error fetching user reports: $e');
       if (mounted) setState(() => _isLoadingUserReports = false);
+    }
+  }
+
+  List<Map<String, dynamic>> _handoverRequests = [];
+  bool _isLoadingHandoverRequests = false;
+  
+  int get _pendingHandoverRequestsCount =>
+      _handoverRequests.where((r) => r['status'] == 'pending').length;
+
+  Future<void> _fetchHandoverRequests() async {
+    setState(() => _isLoadingHandoverRequests = true);
+    try {
+      final rep = await _supabase
+          .from('listing_reports')
+          .select()
+          .like('reason', 'PARTNER_HANDOVER_REQUEST%')
+          .order('created_at', ascending: false);
+
+      if (mounted) {
+        setState(() {
+          _handoverRequests = (rep as List).map((r) {
+            Map<String, dynamic> d = {};
+            final rawComments = r['comments']?.toString() ?? r['details']?.toString() ?? '{}';
+            try {
+              if (rawComments.trim().startsWith('{')) {
+                d = jsonDecode(rawComments);
+              }
+            } catch (_) {}
+
+            final propId = r['property_id']?.toString() ?? '';
+            // Lookup property from loaded _properties if title or image is missing
+            final matchedProp = _properties.cast<PropertyModel?>().firstWhere(
+                  (p) => p?.id == propId,
+                  orElse: () => null,
+                );
+
+            final propTitle = d['property_title']?.toString() ??
+                (r['property_title'] != null && r['property_title'].toString().isNotEmpty
+                    ? r['property_title'].toString()
+                    : matchedProp?.title ?? 'Listing #$propId');
+
+            final propImage = d['property_image']?.toString() ??
+                (matchedProp != null && matchedProp.imageUrls.isNotEmpty
+                    ? matchedProp.imageUrls.first
+                    : null);
+
+            final partnerEmail = (d['partner_email'] ?? '').toString().trim().isNotEmpty
+                ? d['partner_email'].toString().trim()
+                : (r['reporter_device_id']?.toString().replaceFirst('partner_', '') ?? '');
+
+            return {
+              'id': r['id'],
+              'property_id': propId,
+              'property_title': propTitle,
+              'property_image': propImage,
+              'partner_id': d['partner_id'] ?? '',
+              'partner_name': d['partner_name'] ?? 'Partner / Owner',
+              'partner_phone': d['partner_phone'] ?? r['owner_phone'] ?? '',
+              'partner_email': partnerEmail,
+              'role': d['role'] ??
+                  r['reason']?.toString().replaceFirst('PARTNER_HANDOVER_REQUEST:', '').trim() ??
+                  'Direct Property Owner',
+              'note': d['note']?.toString() ??
+                  (rawComments.trim().startsWith('{') ? '' : rawComments),
+              'status': (r['status'] ?? 'pending').toString().toLowerCase(),
+              'created_at': r['created_at'],
+            };
+          }).toList();
+          _isLoadingHandoverRequests = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching handover requests: $e');
+      if (mounted) setState(() => _isLoadingHandoverRequests = false);
     }
   }
 
@@ -328,6 +407,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       _fetchDemandRadarData();
       _fetchAutoNotifierSettings();
       _fetchUserReports();
+      _fetchHandoverRequests();
     });
   }
 
@@ -364,7 +444,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (success) {
         AppSnackbar.success(
           context,
-          enabled ? '🟢 AI Auto-Notifier ENABLED (8 AM, 1 PM, 6 PM IST)' : '🔴 AI Auto-Notifier PAUSED',
+          enabled ? 'ðŸŸ¢ AI Auto-Notifier ENABLED (8 AM, 1 PM, 6 PM IST)' : 'ðŸ”´ AI Auto-Notifier PAUSED',
         );
         _fetchAutoNotifierSettings();
       } else {
@@ -429,7 +509,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (success) {
         AppSnackbar.success(
           context,
-          '🚀 AI Notification dispatched live to ${_selectedAutoAudience.name}!',
+          'ðŸš€ AI Notification dispatched live to ${_selectedAutoAudience.name}!',
         );
         _fetchNotificationHistory();
       } else {
@@ -446,7 +526,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final successfulCount = results.values.where((v) => v).length;
       AppSnackbar.success(
         context,
-        '🎯 Dispatched personalized AI notifications to $successfulCount/3 segregated audience groups (PG Seekers, Room Seekers, Buyers)!',
+        'ðŸŽ¯ Dispatched personalized AI notifications to $successfulCount/3 segregated audience groups (PG Seekers, Room Seekers, Buyers)!',
       );
       _fetchNotificationHistory();
     }
@@ -524,7 +604,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
       }
       if (mounted) {
-        AppSnackbar.success(context, '✅ Approved all ${pendingList.length} pending listings live!');
+        AppSnackbar.success(context, 'âœ… Approved all ${pendingList.length} pending listings live!');
         _fetchProperties();
       }
     } catch (e) {
@@ -534,7 +614,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _toggleAvailability(String id, bool currentStatus) async {
     try {
-      await _supabase.from('properties').update({'is_available': !currentStatus}).eq('id', id);
+      try {
+        await _supabase.rpc('toggle_availability', params: {
+          'p_property_id': id,
+          'p_is_available': !currentStatus,
+        });
+      } catch (rpcErr) {
+        await _supabase.from('properties').update({'is_available': !currentStatus}).eq('id', id);
+      }
       if (mounted) {
         AppSnackbar.success(
           context,
@@ -571,7 +658,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         '"${p.id ?? ''}","${p.title.replaceAll('"', '""')}","${p.type}","${p.price}","${p.securityDeposit ?? ''}","${p.locationStr.replaceAll('"', '""')}","${p.ownerPhone}","${p.status}","${p.isAvailable ? 'Available' : 'Occupied'}"',
       );
     }
-    AppSnackbar.success(context, '📊 Exported ${_properties.length} listings to CSV buffer!');
+    AppSnackbar.success(context, 'ðŸ“Š Exported ${_properties.length} listings to CSV buffer!');
   }
 
   Future<void> _sendPushNotificationBroadcast() async {
@@ -649,7 +736,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       setState(() => _isSendingNotification = false);
       AppSnackbar.success(
         context,
-        '🚀 Push Notification successfully broadcasted to ${newNotif.recipientCount} users in Rajamahendravaram!',
+        'ðŸš€ Push Notification successfully broadcasted to ${newNotif.recipientCount} users in Rajamahendravaram!',
       );
     }
   }
@@ -793,7 +880,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         });
                         AppSnackbar.success(
                           context,
-                          '📱 Switched to ${_availableDevices[index].name}',
+                          'ðŸ“± Switched to ${_availableDevices[index].name}',
                         );
                       },
                       itemBuilder: (context) {
@@ -955,7 +1042,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       tooltip: 'Restart & Reload Preview',
                       onPressed: () {
                         setState(() => _previewKeyIndex++);
-                        AppSnackbar.success(context, '🔄 ${activeDevice.name} preview reloaded!');
+                        AppSnackbar.success(context, 'ðŸ”„ ${activeDevice.name} preview reloaded!');
                       },
                     ),
                     const SizedBox(width: 3),
@@ -1131,7 +1218,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               : InkWell(
                   borderRadius: BorderRadius.circular(10),
                   onTap: () {
-                    AppSnackbar.success(context, '📍 Rental Platform Operations Center');
+                    AppSnackbar.success(context, 'ðŸ“ Rental Platform Operations Center');
                   },
                   child: Row(
                     children: [
@@ -1318,6 +1405,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               const SizedBox(height: 4),
 
               _buildModernSidebarItem(
+                index: 6,
+                icon: CupertinoIcons.briefcase_fill,
+                label: 'Partners & Owners',
+                badgeCount: _pendingHandoverRequestsCount > 0 ? _pendingHandoverRequestsCount : null,
+                isCollapsed: isCollapsed,
+                isDark: isDark,
+                isDrawer: isDrawer,
+              ),
+
+              const SizedBox(height: 4),
+
+              _buildModernSidebarItem(
                 index: 7,
                 icon: CupertinoIcons.chart_bar_fill,
                 label: 'Database & Storage',
@@ -1390,7 +1489,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                     // Collapsed Sidebar Open Toggle (Square)
                     Tooltip(
-                      message: 'Sidebar Open ⌘>',
+                      message: 'Sidebar Open âŒ˜>',
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
@@ -1487,7 +1586,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                     // Close Sidebar Toggle
                     Tooltip(
-                      message: 'Close Sidebar ⌘<',
+                      message: 'Close Sidebar âŒ˜<',
                       child: InkWell(
                         borderRadius: BorderRadius.circular(8),
                         onTap: () => setState(() => _isSidebarCollapsed = true),
@@ -2136,6 +2235,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return 'Landlords & Registered Users Directory';
       case 5:
         return 'User Reports & Flagged Listings Hub';
+      case 6:
+        return 'Partners & Property Handover Hub';
       case 7:
         return 'Supabase Database & Cloud Storage Telemetry';
       case 8:
@@ -2164,6 +2265,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return _buildUsersTab(isDark);
       case 5:
         return _buildUserReportsTab(isDark);
+      case 6:
+        return _buildPartnersTab(isDark);
       case 7:
         return AdminDatabaseAnalyticsTab(
           isDark: isDark,
@@ -2726,15 +2829,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Row(
             children: [
               Expanded(
-                child: _buildPriceTierCard('< ₹5,000', '$budgetCount Units', 'Budget Rooms', const Color(0xFF10B981), isDark),
+                child: _buildPriceTierCard('< â‚¹5,000', '$budgetCount Units', 'Budget Rooms', const Color(0xFF10B981), isDark),
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: _buildPriceTierCard('₹5k - ₹10k', '$midCount Units', 'Mid PGs & Rooms', AppTheme.primaryYellow, isDark),
+                child: _buildPriceTierCard('â‚¹5k - â‚¹10k', '$midCount Units', 'Mid PGs & Rooms', AppTheme.primaryYellow, isDark),
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: _buildPriceTierCard('> ₹10,000', '$highCount Units', 'Full Flats', const Color(0xFF8B5CF6), isDark),
+                child: _buildPriceTierCard('> â‚¹10,000', '$highCount Units', 'Full Flats', const Color(0xFF8B5CF6), isDark),
               ),
             ],
           ),
@@ -2822,7 +2925,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             builder: (_) => PropertyDetailsScreen(property: prop),
           ),
         );
-        AppSnackbar.success(context, '📱 Loaded "${prop.title}" in live phone device preview');
+        AppSnackbar.success(context, 'ðŸ“± Loaded "${prop.title}" in live phone device preview');
       }
     });
   }
@@ -2852,14 +2955,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   propertyToEdit: prop,
                     onPropertyCreated: (updatedProp) {
                       _fetchProperties();
-                      AppSnackbar.success(context, '✅ Property "${updatedProp.title}" updated successfully!');
+                      AppSnackbar.success(context, 'âœ… Property "${updatedProp.title}" updated successfully!');
                     },
                   ),
                 ),
               ),
             ),
           );
-          AppSnackbar.success(context, '📱 Opened real-user posting & editing flow in Live Phone Device Preview');
+          AppSnackbar.success(context, 'ðŸ“± Opened real-user posting & editing flow in Live Phone Device Preview');
         } else {
           _showEditBottomSheetModal(prop, isDark);
         }
@@ -2899,7 +3002,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   propertyToEdit: prop,
                   onPropertyCreated: (updatedProp) {
                     _fetchProperties();
-                    AppSnackbar.success(context, '✅ Property "${updatedProp.title}" updated successfully!');
+                    AppSnackbar.success(context, 'âœ… Property "${updatedProp.title}" updated successfully!');
                   },
                 ),
               ),
@@ -3263,7 +3366,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '₹${p.price}',
+                        'â‚¹${p.price}',
                         style: TextStyle(fontFamily: 'ProximaNova', fontSize: 11.5, fontWeight: FontWeight.w800, color: AppTheme.primaryYellow),
                       ),
                     ],
@@ -3386,7 +3489,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '₹${prop.price}/month • Deposit: ₹${prop.securityDeposit ?? 'N/A'} • ${prop.locationStr}',
+                    'â‚¹${prop.price}/month â€¢ Deposit: â‚¹${prop.securityDeposit ?? 'N/A'} â€¢ ${prop.locationStr}',
                     style: TextStyle(fontFamily: 'ProximaNova', 
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
