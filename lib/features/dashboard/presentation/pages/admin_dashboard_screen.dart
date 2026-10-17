@@ -200,23 +200,153 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _aiInstructionsController = TextEditingController();
   Map<String, String>? _previewAiNotif;
 
-  // Rajamahendravaram Key Localities (Mutable List)
-  late List<String> _rajahmundryLocalities = [
-    'Danavaipeta',
-    'Morampudi',
-    'Prakash Nagar',
-    'VL Puram',
-    'Kotipalli Bus Stand',
-    'Aryapuram',
-    'T Nagar',
-    'Hukumpeta',
-    'Diwancheruvu',
-    'Bommuru',
-    'Lalitha Nagar',
-    'Innespeta',
-    'Kambala Cheruvu',
-    'Dowleswaram',
+  // Known Major Cities & Hubs
+  static const List<String> _knownHubs = [
+    'Palacherla', 'Rajamahendravaram', 'Rajahmundry', 'Visakhapatnam', 'Vizag',
+    'Kakinada', 'Surampalem', 'Mandapeta', 'Tadepalligudem', 'Tanuku', 
+    'Velugubanda', 'Ravulapalem', 'Bheemunipatnam', 'Bheemili', 'Pithapuram', 
+    'Peddapuram', 'Bikkavolu', 'Kanavaram', 'Kovvur', 'Devarapalle', 'Attili', 
+    'Srungavarapu kota', 'Vizianagaram', 'Achanta', 'Draksharamam', 
+    'Rampachodavaram', 'Atchutapuram', 'Anakapalle', 'Yanam', 'Venkataya Palem', 
+    'Khandavilli', 'Polavaram', 'Penugonda',
   ];
+
+  // Known Localities & Sub-areas
+  static const List<String> _knownLocalities = [
+    'Danavai Peta', 'Danavaipeta', 'Divancheruvu', 'Diwancheruvu', 'Ramanayyapeta', 
+    'Ramanayapeta', 'Rameswarampeta', 'Pandurangapuram', 'Madhuravada', 'Madhurawada', 
+    'Kadakatla', 'Gajuwaka', 'Kurmannapalem', 'Dwaraka Nagar', 'Seethammadara', 
+    'Lawsons Bay Colony', 'Bhanugudi Junction', 'Prakasam Nagar', 'Prakash Nagar', 
+    'Ayyappa Nagar', 'Innespeta', 'Kambala Cheruvu', 'Alcot Gardens', 'Lalacheruvu', 
+    'Tyagaraja Nagar', 'Bhaskar Nagar', 'Mangalavaripeta', 'Morampudi', 'VL Puram', 
+    'Aryapuram', 'T Nagar', 'Bommuru', 'Dowleswaram', 'G O Colony', 'Shanti Nagar',
+    'Ayodhya Nagar', 'Sajjapuram', 'Venkatarayapuram', 'Housing Board Colony',
+  ];
+
+  // Actual unique locations extracted from live properties with listing counts
+  List<MapEntry<String, int>> _actualPropertyLocations = [];
+
+  // Fallback/Legacy list maintained for compatibility across dashboard tabs
+  late List<String> _rajahmundryLocalities = [
+    'Palacherla',
+    'Rajamahendravaram',
+    'Visakhapatnam',
+    'Kakinada',
+    'Danavai Peta',
+    'Surampalem',
+    'Divancheruvu',
+    'Mandapeta',
+    'Tadepalligudem',
+    'Ramanayyapeta',
+    'Velugubanda',
+    'Pithapuram',
+    'Tanuku',
+  ];
+
+  void _updateActualLocations() {
+    final Map<String, int> counts = {};
+
+    String normalize(String s) => s.toLowerCase().replaceAll(RegExp(r'[\s\-_,\.]+'), '');
+
+    // 1. Check known hubs against live properties
+    for (final hub in _knownHubs) {
+      final normHub = normalize(hub);
+      final c = _properties.where((p) => normalize(p.locationStr).contains(normHub)).length;
+      if (c > 0) {
+        counts[hub] = c;
+      }
+    }
+
+    // 2. Check known localities against live properties
+    for (final loc in _knownLocalities) {
+      final normLoc = normalize(loc);
+      final c = _properties.where((p) => normalize(p.locationStr).contains(normLoc)).length;
+      if (c > 0) {
+        // De-duplicate alternative spellings to keep UI clean
+        if (loc == 'Danavaipeta' && counts.containsKey('Danavai Peta')) continue;
+        if (loc == 'Diwancheruvu' && counts.containsKey('Divancheruvu')) continue;
+        if (loc == 'Ramanayapeta' && counts.containsKey('Ramanayyapeta')) continue;
+        if (loc == 'Madhurawada' && counts.containsKey('Madhuravada')) continue;
+        if (loc == 'Prakash Nagar' && counts.containsKey('Prakasam Nagar')) continue;
+        if (loc == 'Rajahmundry' && counts.containsKey('Rajamahendravaram')) continue;
+        if (loc == 'Vizag' && counts.containsKey('Visakhapatnam')) continue;
+        if (loc == 'Bheemili' && counts.containsKey('Bheemunipatnam')) continue;
+        counts[loc] = c;
+      }
+    }
+
+    // 3. Fallback: Parse comma separated parts for any property not yet matched
+    for (final p in _properties) {
+      final normLoc = normalize(p.locationStr);
+      final isCovered = counts.keys.any((k) => normLoc.contains(normalize(k)));
+      if (!isCovered) {
+        final parts = p.locationStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+        for (final pt in parts) {
+          final clean = pt.replaceAll(RegExp(r'\b(India|Andhra Pradesh|\d{6})\b', caseSensitive: false), '').trim();
+          if (clean.length >= 4 && !RegExp(r'^[A-Z0-9\+\-\/]+$').hasMatch(clean)) {
+            counts[clean] = (counts[clean] ?? 0) + 1;
+            break;
+          }
+        }
+      }
+    }
+
+    // Sort by property count descending, then alphabetically
+    final sorted = counts.entries.toList()
+      ..sort((a, b) {
+        final cmp = b.value.compareTo(a.value);
+        return cmp != 0 ? cmp : a.key.compareTo(b.key);
+      });
+
+    _actualPropertyLocations = sorted;
+    if (sorted.isNotEmpty) {
+      _rajahmundryLocalities = sorted.map((e) => e.key).toList();
+    }
+  }
+
+  bool _propertyMatchesLocality(PropertyModel p, String filter) {
+    if (filter == 'all' || filter.trim().isEmpty) return true;
+    final locLower = p.locationStr.toLowerCase();
+    final filterLower = filter.toLowerCase().trim();
+
+    // Direct match
+    if (locLower.contains(filterLower)) return true;
+
+    // Normalized match (ignore spaces, hyphens, punctuation)
+    final normLoc = locLower.replaceAll(RegExp(r'[\s\-_,\.]+'), '');
+    final normFilter = filterLower.replaceAll(RegExp(r'[\s\-_,\.]+'), '');
+    if (normLoc.contains(normFilter)) return true;
+
+    // Common synonyms / alternate spellings
+    if ((filterLower == 'rajahmundry' || filterLower == 'rajamahendravaram') &&
+        (locLower.contains('rajamahendravaram') || locLower.contains('rajahmundry'))) {
+      return true;
+    }
+    if ((filterLower == 'vizag' || filterLower == 'visakhapatnam') &&
+        (locLower.contains('visakhapatnam') || locLower.contains('vizag'))) {
+      return true;
+    }
+    if ((filterLower == 'bheemili' || filterLower == 'bheemunipatnam') &&
+        (locLower.contains('bheemunipatnam') || locLower.contains('bheemili'))) {
+      return true;
+    }
+    if (filterLower.contains('danavai') && locLower.contains('danavai')) {
+      return true;
+    }
+    if ((filterLower.contains('diwan') || filterLower.contains('divan')) &&
+        (locLower.contains('diwan') || locLower.contains('divan'))) {
+      return true;
+    }
+    if ((filterLower.contains('madhurav') || filterLower.contains('madhuraw')) &&
+        (locLower.contains('madhurav') || locLower.contains('madhuraw'))) {
+      return true;
+    }
+    if (filterLower.contains('prakas') && locLower.contains('prakas')) {
+      return true;
+    }
+
+    return false;
+  }
 
 
 
@@ -544,6 +674,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           if (_properties.isNotEmpty && _selectedPropertyId == null) {
             _selectedPropertyId = _properties.first.id;
           }
+          _updateActualLocations();
         });
         _matchTopProperties();
       }

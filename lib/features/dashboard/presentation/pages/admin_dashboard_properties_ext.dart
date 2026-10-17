@@ -15,7 +15,7 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
           return false;
         }
   
-        if (_localityFilter != 'all' && !p.locationStr.toLowerCase().contains(_localityFilter.toLowerCase())) {
+        if (!_propertyMatchesLocality(p, _localityFilter)) {
           return false;
         }
   
@@ -189,13 +189,18 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
                         initialValue: _localityFilter,
                         onSelected: (val) => setState(() => _localityFilter = val),
                         itemBuilder: (context) {
-                          final allLocs = ['all', ..._rajahmundryLocalities];
-                          return allLocs.map((loc) {
-                            final isSelected = _localityFilter == loc;
-                            final label = loc == 'all' ? 'All Localities' : loc;
+                          final allLocs = [
+                            MapEntry('all', _properties.length),
+                            ..._actualPropertyLocations,
+                          ];
+                          return allLocs.map((entry) {
+                            final locKey = entry.key;
+                            final locCount = entry.value;
+                            final isSelected = _localityFilter == locKey;
+                            final label = locKey == 'all' ? 'All Locations' : locKey;
                             return PopupMenuItem<String>(
-                              value: loc,
-                              height: 36,
+                              value: locKey,
+                              height: 38,
                               child: Row(
                                 children: [
                                   Icon(
@@ -214,8 +219,28 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
                                       ),
                                     ),
                                   ),
-                                  if (isSelected)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? AppTheme.primaryYellow.withValues(alpha: 0.2)
+                                          : (isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '$locCount',
+                                      style: TextStyle(
+                                        fontFamily: 'ProximaNova', 
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: isSelected ? AppTheme.primaryYellow : mutedColor,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected) ...[
+                                    const SizedBox(width: 6),
                                     const Icon(CupertinoIcons.checkmark_alt, size: 15, color: Color(0xFFFFEB3A)),
+                                  ],
                                 ],
                               ),
                             );
@@ -228,24 +253,41 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
                             color: isDark ? const Color(0xFF1E2330) : const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
+                              color: _localityFilter != 'all'
+                                  ? AppTheme.primaryYellow.withValues(alpha: 0.7)
+                                  : (isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+                              width: _localityFilter != 'all' ? 1.5 : 1,
                             ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(CupertinoIcons.location_solid, size: 16, color: mutedColor),
+                              Icon(
+                                CupertinoIcons.location_solid, 
+                                size: 16, 
+                                color: _localityFilter != 'all' ? AppTheme.primaryYellow : mutedColor,
+                              ),
                               const SizedBox(width: 7),
                               Text(
-                                _localityFilter == 'all' ? 'All Localities' : _localityFilter,
+                                _localityFilter == 'all'
+                                    ? 'All Locations (${_properties.length})'
+                                    : '$_localityFilter (${_properties.where((p) => _propertyMatchesLocality(p, _localityFilter)).length})',
                                 style: TextStyle(fontFamily: 'ProximaNova', 
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: primaryTextColor,
+                                  color: _localityFilter != 'all' ? AppTheme.primaryYellow : primaryTextColor,
                                 ),
                               ),
-                              const SizedBox(width: 5),
-                              Icon(CupertinoIcons.chevron_down, size: 16, color: mutedColor),
+                              if (_localityFilter != 'all') ...[
+                                const SizedBox(width: 6),
+                                InkWell(
+                                  onTap: () => setState(() => _localityFilter = 'all'),
+                                  child: Icon(CupertinoIcons.clear_circled_solid, size: 15, color: mutedColor),
+                                ),
+                              ] else ...[
+                                const SizedBox(width: 5),
+                                Icon(CupertinoIcons.chevron_down, size: 16, color: mutedColor),
+                              ],
                             ],
                           ),
                         ),
@@ -377,10 +419,128 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
                       ],
                     ),
                   ),
+
+                  // Actual Location Quick-Filter Badges Row
+                  if (_actualPropertyLocations.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryYellow.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(CupertinoIcons.location_solid, size: 13, color: AppTheme.primaryYellow),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Locations',
+                                style: TextStyle(
+                                  fontFamily: 'ProximaNova',
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? AppTheme.primaryYellow : const Color(0xFFB45309),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                _buildLocationFilterChip('all', 'All Locations (${_properties.length})', isDark),
+                                const SizedBox(width: 7),
+                                ..._actualPropertyLocations.map((entry) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 7),
+                                    child: _buildLocationFilterChip(entry.key, '${entry.key} (${entry.value})', isDark),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
+
+            // Active Locality Filter Notice Banner
+            if (_localityFilter != 'all') ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryYellow.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.primaryYellow.withValues(alpha: 0.45)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(CupertinoIcons.location_solid, size: 16, color: AppTheme.primaryYellow),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontFamily: 'ProximaNova',
+                            fontSize: 12.5,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                          children: [
+                            const TextSpan(text: 'Showing all properties located in: '),
+                            TextSpan(
+                              text: '"$_localityFilter"',
+                              style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.primaryYellow),
+                            ),
+                            TextSpan(
+                              text: '  •  ${filtered.length} listings found',
+                              style: TextStyle(color: mutedColor, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: () => setState(() => _localityFilter = 'all'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(CupertinoIcons.clear_circled_solid, size: 13, color: primaryTextColor),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Show All Locations',
+                              style: TextStyle(
+                                fontFamily: 'ProximaNova',
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: primaryTextColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
   
             // Properties Matrix List View
             Expanded(
@@ -447,6 +607,62 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
                 ? (badgeColor != null ? Colors.black : (isDark ? Colors.black : Colors.white))
                 : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569)),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationFilterChip(String value, String label, bool isDark) {
+    final isSelected = _localityFilter == value;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => setState(() {
+        if (_localityFilter == value && value != 'all') {
+          _localityFilter = 'all'; // toggle off if already active
+        } else {
+          _localityFilter = value;
+        }
+      }),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6.5),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.primaryYellow
+              : (isDark ? const Color(0xFF1E2330) : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.primaryYellow
+                : (isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (value != 'all')
+              Padding(
+                padding: const EdgeInsets.only(right: 5),
+                child: Icon(
+                  CupertinoIcons.location_solid,
+                  size: 11,
+                  color: isSelected ? Colors.black : (isDark ? Colors.white70 : Colors.black54),
+                ),
+              ),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'ProximaNova', 
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected
+                    ? Colors.black
+                    : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -585,15 +801,37 @@ extension AdminDashboardPropertiesExt on _AdminDashboardScreenState {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        prop.locationStr,
-                        style: TextStyle(fontFamily: 'ProximaNova', 
-                          fontSize: 11.5,
-                          color: mutedColor,
+                      const SizedBox(height: 3),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(4),
+                        onTap: () {
+                          // Find best matching location name from actual property locations
+                          final match = _actualPropertyLocations.firstWhere(
+                            (e) => _propertyMatchesLocality(prop, e.key),
+                            orElse: () => MapEntry(prop.locationStr.split(',').first.trim(), 1),
+                          );
+                          setState(() => _localityFilter = match.key);
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(CupertinoIcons.location_solid, size: 12, color: AppTheme.primaryYellow),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                prop.locationStr,
+                                style: TextStyle(
+                                  fontFamily: 'ProximaNova', 
+                                  fontSize: 11.5,
+                                  color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF2563EB),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2.5),
                       Row(

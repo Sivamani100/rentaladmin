@@ -186,17 +186,17 @@ extension AdminDashboardOverviewExt on _AdminDashboardScreenState {
   
                     // KPI 3: Operational Localities
                     _buildExecutiveKpiCard(
-                      title: 'Covered Localities',
-                      value: '${_rajahmundryLocalities.length} Localities',
-                      subtitle: 'Active Municipal Zones',
-                      badgeLabel: 'Active Coverage',
+                      title: 'Covered Locations',
+                      value: '${_actualPropertyLocations.isNotEmpty ? _actualPropertyLocations.length : _rajahmundryLocalities.length} Active Hubs',
+                      subtitle: 'Active Property Locations',
+                      badgeLabel: 'Live Coverage',
                       badgeColor: const Color(0xFF3B82F6),
                       icon: CupertinoIcons.location_solid,
                       iconColor: const Color(0xFF3B82F6),
                       isDark: isDark,
                       primaryTextColor: primaryTextColor,
                       mutedColor: mutedColor,
-                      onTap: () => setState(() => _selectedTabIndex = 6),
+                      onTap: () => setState(() => _selectedTabIndex = 1),
                     ),
   
                     // KPI 4: Photos & Quality Verification
@@ -288,26 +288,19 @@ extension AdminDashboardOverviewExt on _AdminDashboardScreenState {
 
 
   Widget _buildLocalityRankingCard(bool isDark, Color primaryTextColor, Color mutedColor) {
-      // Dynamically calculate listing count per locality from live dataset
-      final localityMap = <String, int>{};
-      for (final p in _properties) {
-        final loc = p.locationStr.split(',').first.trim();
-        if (loc.isNotEmpty) {
-          localityMap[loc] = (localityMap[loc] ?? 0) + 1;
-        }
-      }
-  
-      final sortedLocalities = localityMap.entries.toList()
-        ..sort((a, b) => b.value.compareTo(a.value));
-  
+      final sortedLocalities = _actualPropertyLocations.isNotEmpty
+          ? _actualPropertyLocations
+          : _properties.map((p) => MapEntry(p.locationStr.split(',').first.trim(), 1)).toList();
+
       final totalProps = _properties.isEmpty ? 1 : _properties.length;
-  
+
       // Remaining localities with 0 listings currently
+      final activeLocSet = sortedLocalities.map((e) => e.key.toLowerCase()).toSet();
       final unlistedLocalities = _rajahmundryLocalities
-          .where((loc) => !localityMap.containsKey(loc))
+          .where((loc) => !activeLocSet.contains(loc.toLowerCase()))
           .take(5)
           .toList();
-  
+
       return Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -338,120 +331,140 @@ extension AdminDashboardOverviewExt on _AdminDashboardScreenState {
                   ],
                 ),
                 InkWell(
-                  onTap: () => setState(() => _selectedTabIndex = 6),
+                  onTap: () => setState(() => _selectedTabIndex = 1),
                   child: Text(
-                    'Manage Localities ↗',
+                    'View in Properties ↗',
                     style: TextStyle(fontFamily: 'ProximaNova', fontSize: 11.5, fontWeight: FontWeight.w700, color: const Color(0xFF3B82F6)),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 14),
-  
+
             // Active Localities with Listings
-            ...sortedLocalities.map((entry) {
+            ...sortedLocalities.take(8).map((entry) {
               final locName = entry.key;
               final locCount = entry.value;
               final pct = (locCount / totalProps).clamp(0.05, 1.0);
               final pctLabel = ((locCount / totalProps) * 100).round();
-  
-              return Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 10),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E2330) : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF10B981),
-                                shape: BoxShape.circle,
+
+              return InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () {
+                  setState(() {
+                    _localityFilter = locName;
+                    _selectedTabIndex = 1;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E2330) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF10B981),
+                                  shape: BoxShape.circle,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              locName,
-                              style: TextStyle(fontFamily: 'ProximaNova', 
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w800,
-                                color: primaryTextColor,
+                              const SizedBox(width: 8),
+                              Text(
+                                locName,
+                                style: TextStyle(fontFamily: 'ProximaNova', 
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: primaryTextColor,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Active Zone',
+                                  style: TextStyle(fontFamily: 'ProximaNova', fontSize: 9.5, fontWeight: FontWeight.w800, color: const Color(0xFF10B981)),
+                                ),
                               ),
-                              child: Text(
-                                'Active Zone',
-                                style: TextStyle(fontFamily: 'ProximaNova', fontSize: 9.5, fontWeight: FontWeight.w800, color: const Color(0xFF10B981)),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '$locCount Properties ($pctLabel%)',
-                          style: TextStyle(fontFamily: 'ProximaNova', 
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF10B981),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: pct,
-                        minHeight: 5,
-                        backgroundColor: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
-                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                          Text(
+                            '$locCount Properties ($pctLabel%)',
+                            style: TextStyle(fontFamily: 'ProximaNova', 
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF10B981),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: pct,
+                          minHeight: 5,
+                          backgroundColor: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
+                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }),
-  
-            const SizedBox(height: 4),
-            Text(
-              'Configured Areas Ready For Next Listings:',
-              style: TextStyle(fontFamily: 'ProximaNova', fontSize: 11, fontWeight: FontWeight.w700, color: mutedColor),
-            ),
-            const SizedBox(height: 8),
-  
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: unlistedLocalities.map((loc) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E2330) : const Color(0xFFF1F5F9),
+
+            if (unlistedLocalities.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Other Known Areas:',
+                style: TextStyle(fontFamily: 'ProximaNova', fontSize: 11, fontWeight: FontWeight.w700, color: mutedColor),
+              ),
+              const SizedBox(height: 8),
+
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: unlistedLocalities.map((loc) {
+                  return InkWell(
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
-                  ),
-                  child: Text(
-                    loc,
-                    style: TextStyle(fontFamily: 'ProximaNova', fontSize: 11, fontWeight: FontWeight.w600, color: mutedColor),
-                  ),
-                );
-              }).toList(),
-            ),
+                    onTap: () {
+                      setState(() {
+                        _localityFilter = loc;
+                        _selectedTabIndex = 1;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E2330) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+                      ),
+                      child: Text(
+                        loc,
+                        style: TextStyle(fontFamily: 'ProximaNova', fontSize: 11, fontWeight: FontWeight.w600, color: mutedColor),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
           ],
         ),
       );

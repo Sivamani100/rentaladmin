@@ -1119,8 +1119,13 @@ extension AdminDashboardNotificationsExt on _AdminDashboardScreenState {
                       initialValue: _selectedCategoryOrLocality ?? 'Danavaipeta',
                       onSelected: (val) => setState(() => _selectedCategoryOrLocality = val),
                       itemBuilder: (context) {
-                        return _rajahmundryLocalities.map((loc) {
-                          final isSelected = (_selectedCategoryOrLocality ?? 'Danavaipeta') == loc;
+                        final locList = _actualPropertyLocations.isNotEmpty
+                            ? _actualPropertyLocations
+                            : _rajahmundryLocalities.map((e) => MapEntry(e, 0)).toList();
+                        return locList.map((entry) {
+                          final loc = entry.key;
+                          final count = entry.value;
+                          final isSelected = (_selectedCategoryOrLocality ?? 'Palacherla') == loc;
                           return PopupMenuItem<String>(
                             value: loc,
                             height: 36,
@@ -1134,7 +1139,7 @@ extension AdminDashboardNotificationsExt on _AdminDashboardScreenState {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    loc,
+                                    count > 0 ? '$loc ($count listings)' : loc,
                                     style: TextStyle(fontFamily: 'ProximaNova', 
                                       fontSize: 12,
                                       fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
